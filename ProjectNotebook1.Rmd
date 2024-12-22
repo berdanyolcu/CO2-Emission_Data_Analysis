@@ -1,0 +1,327 @@
+---
+title: "CO2 Emissions Inspection"
+output: html_notebook
+---
+
+# Import the Dataset
+
+# (Change the path if you want to run!!)
+
+```{r}
+# Load the dataset 
+df <- read.csv('/Users/berdn90s/Downloads/CO2 Emissions Dataset/visualizing_global_co2_data.csv', stringsAsFactors = FALSE)
+
+# Overwrite df with only the selected columns
+df <- df[, c(
+  "country",
+  "year",
+  "population",
+  "gdp",
+  "co2",
+  "co2_per_capita",
+  "co2_per_gdp",
+  "coal_co2",
+  "oil_co2",
+  "gas_co2",
+  "cement_co2",
+  "cumulative_co2",
+  "share_global_co2",
+  "temperature_change_from_co2"
+)]
+
+# View the structure of the updated dataset
+str(df)
+```
+
+## Check Missing Values
+
+```{r}
+# Calculate the number of NA values per column
+na_counts <- colSums(is.na(df))
+
+# Calculate the percentage of NA values per column
+na_percentage <- (na_counts / nrow(df)) * 100
+
+# Combine the counts and percentages into a data frame
+na_summary <- data.frame(
+  Column = names(na_counts),
+  NA_Count = na_counts,
+  NA_Percentage = na_percentage
+)
+
+# Display the NA summary
+print(na_summary)
+```
+
+## Handling Missing Values
+
+```{r}
+# Fill missing values with median for numerical columns
+df$co2[is.na(df$co2)] <- median(df$co2, na.rm = TRUE)
+df$co2_per_capita[is.na(df$co2_per_capita)] <- median(df$co2_per_capita, na.rm = TRUE)
+df$cumulative_co2[is.na(df$cumulative_co2)] <- median(df$cumulative_co2, na.rm = TRUE)
+df$share_global_co2[is.na(df$share_global_co2)] <- median(df$share_global_co2, na.rm = TRUE)
+df$temperature_change_from_co2[is.na(df$temperature_change_from_co2)] <- mean(df$temperature_change_from_co2, na.rm = TRUE)
+df$population[is.na(df$population)] <- median(df$population, na.rm = TRUE)
+```
+
+## Drop Columns with High Missing Values
+
+```{r}
+# Drop columns with >50% missing values
+df <- df[, !names(df) %in% c("gdp", "co2_per_gdp", "coal_co2", "oil_co2", "gas_co2", "cement_co2")]
+
+# Preview the cleaned dataset
+head(df)
+```
+
+## Descriptive Statistics
+
+```{r}
+# Summary statistics for the dataset
+summary(df)
+
+# Frequency table for 'country' column
+country_freq <- table(df$country)
+print(country_freq)
+```
+
+# Filter Data for Europe and Asia
+
+```{r}
+# Create a vector of European and Asian countries
+europe_asia_countries <- c(
+  "Afghanistan", "Albania", "Armenia", "Austria", "Azerbaijan", "Bangladesh", 
+  "Belgium", "Bhutan", "Bosnia and Herzegovina", "Bulgaria", "China", "Croatia",
+  "Cyprus", "Czech Republic", "Denmark", "Estonia", "Finland", "France",
+  "Georgia", "Germany", "Greece", "Hungary", "India", "Indonesia", "Iran",
+  "Iraq", "Ireland", "Israel", "Italy", "Japan", "Jordan", "Kazakhstan",
+  "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lithuania", 
+  "Luxembourg", "Malaysia", "Maldives", "Moldova", "Mongolia", "Montenegro", 
+  "Myanmar", "Nepal", "Netherlands", "North Korea", "Norway", "Oman", "Pakistan",
+  "Palestine", "Philippines", "Poland", "Portugal", "Qatar", "Romania", 
+  "Russia", "Saudi Arabia", "Serbia", "Singapore", "Slovakia", "Slovenia", 
+  "South Korea", "Spain", "Sri Lanka", "Sweden", "Switzerland", "Syria",
+  "Tajikistan", "Thailand", "Turkey", "Turkmenistan", "Ukraine", 
+  "United Arab Emirates", "Uzbekistan", "Vietnam", "Yemen"
+)
+
+# Subset the data to include only the specified countries
+df_europe_asia <- df %>% filter(country %in% europe_asia_countries)
+
+# Get the unique countries in the Europe and Asia dataset
+unique_countries_europe_asia <- unique(df_europe_asia$country)
+
+# Print the unique countries
+print(unique_countries_europe_asia)
+```
+
+# Visualizations
+
+### 1. Top 10 CO2-Emitting Countries in Europe and Asia
+
+```{r}
+# Summarize average CO2 emissions for each country
+top_countries_eu_asia <- df_europe_asia %>%
+  group_by(country) %>%
+  summarise(avg_co2 = mean(co2, na.rm = TRUE)) %>%
+  arrange(desc(avg_co2)) %>%
+  slice_head(n = 10)
+
+# Bar chart
+ggplot(top_countries_eu_asia, aes(x = reorder(country, -avg_co2), y = avg_co2, fill = country)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Top 10 CO2-Emitting Countries in Europe and Asia",
+    x = "Country",
+    y = "Average CO2 Emissions"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### 2. CO2 Emissions Over Time
+
+```{r}
+# Line plot for CO2 emissions over time for Europe and Asia
+ggplot(df_europe_asia, aes(x = year, y = co2, group = country, color = country)) +
+  geom_line() +
+  labs(
+    title = "CO2 Emissions Over Time in Europe and Asia",
+    x = "Year",
+    y = "CO2 Emissions"
+  ) +
+  theme_minimal() +
+  theme(legend.title = element_text(size = 10), legend.text = element_text(size = 8))
+```
+
+### 3. Population vs CO2 Emissions
+
+```{r}
+# Scatter plot for population vs CO2 emissions
+ggplot(df_europe_asia, aes(x = population, y = co2)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_smooth(method = "lm", color = "red") +
+  labs(
+    title = "Population vs CO2 Emissions in Europe and Asia",
+    x = "Population",
+    y = "CO2 Emissions"
+  ) +
+  theme_minimal()
+# The red line represents the linear regression fit.
+```
+
+### 4. Distribution of CO2 Emissions
+
+```{r}
+# Histogram of CO2 emissions in Europe and Asia
+ggplot(df_europe_asia, aes(x = co2)) +
+  geom_histogram(binwidth = 50, fill = "skyblue", color = "black") +
+  labs(
+    title = "Distribution of CO2 Emissions in Europe and Asia",
+    x = "CO2 Emissions",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+```
+
+### 5. Frequency of CO2 Emission Categories
+
+```{r}
+# Adjust thresholds for CO2 emissions bins
+df_europe_asia$CO2_Emissions_Binned <- cut(
+  df_europe_asia$co2,
+  breaks = c(0, 100, 1000, 5000, 15000),
+  labels = c("Very Low (<100)", "Low (100-1000)", "Moderate (1000-5000)", "High (>5000)")
+)
+
+# Count the frequency of each category
+freq_table <- df_europe_asia %>%
+  group_by(CO2_Emissions_Binned) %>%
+  summarise(Count = n())
+
+# Bar chart with new thresholds
+ggplot(freq_table, aes(x = CO2_Emissions_Binned, y = Count, fill = CO2_Emissions_Binned)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(
+    title = "Frequency of CO2 Emission Categories in Europe and Asia (Adjusted Thresholds)",
+    x = "CO2 Emission Categories",
+    y = "Number of Countries"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Correlation Inspection
+
+### Correlation Matrix
+
+```{r}
+# Compute the correlation matrix
+numeric_cols <- df_europe_asia %>%
+  select_if(is.numeric)
+
+cor_matrix <- cor(numeric_cols, use = "complete.obs")
+
+# Print the correlation matrix
+print(cor_matrix)
+```
+
+### Correlation Heatmap
+
+```{r}
+library(reshape2)
+
+# Convert the correlation matrix to long format for ggplot2
+cor_long <- melt(cor_matrix)
+
+# Create a heatmap
+ggplot(cor_long, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "blue", high = "red", mid = "white", 
+    midpoint = 0, limit = c(-1, 1), space = "Lab"
+  ) +
+  labs(
+    title = "Correlation Heatmap",
+    x = "Variables",
+    y = "Variables"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+
+### Insights from the Correlation Heatmap
+
+-   **Population and CO2**: There is a strong correlation between population and CO2 emissions, which we will explore further.
+-   **Other Strong Correlations**: Variables like `share_global_co2` and `co2` are strongly correlated, but this is expected and not insightful for further analysis.
+
+# Clustering Analysis
+
+### K-Means Clustering
+
+```{r}
+# Select numeric columns for clustering
+numeric_cols <- df_europe_asia %>%
+  select(co2, population, co2_per_capita)
+
+# Scale the data for clustering
+scaled_data <- scale(numeric_cols)
+
+# Perform k-means clustering (e.g., 3 clusters)
+set.seed(123)
+kmeans_result <- kmeans(scaled_data, centers = 3, nstart = 25)
+
+# Add cluster assignments to the dataset
+df_europe_asia$Cluster <- as.factor(kmeans_result$cluster)
+
+# Visualize clusters (Example: CO2 vs Population)
+ggplot(df_europe_asia, aes(x = population, y = co2, color = Cluster)) +
+  geom_point() +
+  labs(
+    title = "K-Means Clustering: CO2 vs Population",
+    x = "Population",
+    y = "CO2 Emissions"
+  ) +
+  theme_minimal()
+```
+
+### Interpretation of K-Means Clustering
+
+-   **Cluster 1 (Red)**: Countries with high population and high CO2 emissions, likely industrialized nations with significant environmental impact.
+-   **Cluster 2 (Green)**: Countries with moderate populations and CO2 emissions, potentially developing or medium-sized nations.
+-   **Cluster 3 (Blue)**: Countries with very low populations and CO2 emissions, likely smaller or less industrialized regions.
+
+This clustering highlights the strong correlation between population size and CO2 emissions.
+
+# Regression Model
+
+### Spline Regression: Predicting CO2 Emissions
+
+```{r}
+# Fit a spline model
+spline_model <- lm(co2 ~ bs(population, degree = 3, knots = c(5e+08, 1e+09)), data = df_europe_asia)
+
+# Summary of the spline model
+summary(spline_model)
+
+# Predict and visualize the spline fit
+df_europe_asia$predicted_co2_spline <- predict(spline_model, newdata = df_europe_asia)
+
+ggplot(df_europe_asia, aes(x = population, y = co2)) +
+  geom_point(color = "blue", alpha = 0.5) +
+  geom_line(aes(y = predicted_co2_spline), color = "red") +
+  labs(
+    title = "Spline Regression: CO2 vs Population",
+    x = "Population",
+    y = "CO2 Emissions"
+  ) +
+  theme_minimal()
+```
+
+### Interpretation of Spline Regression
+
+-   **Spline Regression** divides the data into segments using knots (breakpoints) and fits separate polynomial functions to each segment, ensuring smooth transitions.
+-   **Knots**: Split the population into meaningful ranges (e.g., at 500 million and 1 billion).
+-   **R-squared = 0.7681**: The model explains **76.8%** of the variability in `co2` emissions based on `population`.
+-   This approach captures the nonlinear relationship better than linear models, providing a significant improvement.
